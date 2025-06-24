@@ -1,16 +1,151 @@
+# ToDoCLI - Gestionnaire de Todo Lists en Rust
+
 ## Introduction
-This project is about creating a Todo List in CLI that will be based on rust language.
+ToDoCLI est une application de gestion de todo lists développée en Rust qui fonctionne en ligne de commande. Elle permet de créer, modifier et supprimer des listes de tâches avec stockage persistant en format JSON.
 
-it will function as followed : 
-when the user will launch the program, there will be a menu asking him if he wants to :
-1) create a new list
-2) update an existing list
-3) delete an existing list
-4) leave the program
+## Fonctionnalités
 
-the todo lists will be stored in json files with the name of the todolist given by the user.
-for instance, if the user says : create the list todolist1, it'll create a todolist1.json file that will store the elements.
+### 🎯 Fonctionnalités principales
+- **Création de todo lists** : Créez de nouvelles listes avec des éléments personnalisés
+- **Modification de listes existantes** : Ajoutez, supprimez ou modifiez le statut des éléments
+- **Suppression de listes** : Supprimez définitivement des listes avec confirmation
+- **Stockage persistant** : Toutes les listes sont sauvegardées automatiquement en JSON
 
-the elements will have 2 attributes : 
-1) Name : name of the element in the todo list
-2) State : To start, ongoing, or done.
+### 📝 Gestion des éléments
+Chaque élément de todo list contient :
+- **ID unique** : Identifiant automatique pour chaque élément
+- **Titre** : Nom de la tâche (obligatoire)
+- **Description** : Détails optionnels sur la tâche
+- **Statut** : Terminé (✓) ou en cours (□)
+- **Horodatage** : Date de création et de completion
+
+### 💾 Stockage des données
+- Format : JSON lisible et structuré
+- Nommage : `nom_de_la_liste.json` (espaces remplacés par des underscores)
+- Localisation : Fichiers dans le répertoire d'exécution
+
+## Installation et utilisation
+
+### Prérequis
+- Rust (version 1.70+ recommandée)
+- Cargo (gestionnaire de paquets Rust)
+
+### Installation
+```bash
+# Cloner le repository
+git clone <url-du-repo>
+cd ToDoCLI
+
+# Compiler le projet
+cargo build --release
+
+# Exécuter l'application
+cargo run
+```
+
+### Utilisation
+
+#### Menu principal
+L'application affiche un menu avec 4 options :
+1. **Créer une nouvelle liste** - Créer une todo list avec des éléments
+2. **Mettre à jour une liste existante** - Modifier une liste sauvegardée
+3. **Supprimer une liste existante** - Supprimer définitivement une liste
+4. **Quitter** - Fermer l'application
+
+#### Création d'une liste
+1. Choisissez l'option 1
+2. Entrez le nom de votre liste
+3. Ajoutez des éléments un par un :
+   - Titre de l'élément (obligatoire)
+   - Description (optionnelle)
+   - Tapez "fin" pour terminer l'ajout d'éléments
+4. La liste est automatiquement sauvegardée
+
+#### Modification d'une liste
+1. Choisissez l'option 2
+2. Sélectionnez la liste à modifier
+3. Sous-menu de modification :
+   - **Ajouter un élément** : Nouvelle tâche
+   - **Marquer comme terminé/non terminé** : Changer le statut
+   - **Supprimer un élément** : Retirer une tâche
+   - **Afficher la liste** : Voir le contenu actuel
+   - **Retour au menu principal** : Sauvegarde automatique
+
+#### Suppression d'une liste
+1. Choisissez l'option 3
+2. Sélectionnez la liste à supprimer
+3. Confirmez la suppression (oui/non)
+
+## Structure des données
+
+### Format JSON
+```json
+{
+  "name": "Nom de la liste",
+  "items": [
+    {
+      "id": 1,
+      "title": "Titre de la tâche",
+      "description": "Description optionnelle",
+      "completed": false,
+      "created_at": "2025-06-24T21:29:00Z",
+      "completed_at": null
+    }
+  ],
+  "created_at": "2025-06-24T21:29:00Z",
+  "last_modified": "2025-06-24T21:29:00Z"
+}
+```
+
+## Dépendances
+
+- **serde** : Sérialisation/désérialisation JSON
+- **serde_json** : Manipulation de fichiers JSON
+- **chrono** : Gestion des dates et heures
+
+## Développement
+
+### Structure du projet
+```
+ToDoCLI/
+├── Cargo.toml          # Configuration et dépendances
+├── src/
+│   └── main.rs         # Code source principal
+└── README.md           # Documentation
+```
+
+### Compilation
+```bash
+# Mode développement
+cargo build
+
+# Mode production
+cargo build --release
+
+# Vérification du code
+cargo check
+
+# Tests (si implémentés)
+cargo test
+```
+
+## Fonctionnalités futures
+
+- [ ] Interface graphique (TUI)
+- [ ] Catégories et tags pour les éléments
+- [ ] Dates d'échéance
+- [ ] Priorités
+- [ ] Export/import de listes
+- [ ] Synchronisation cloud
+- [ ] Rappels et notifications
+
+## Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à :
+- Signaler des bugs
+- Proposer de nouvelles fonctionnalités
+- Soumettre des pull requests
+
+## Licence
+
+Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
