@@ -7,7 +7,7 @@ ToDoCLI est une application de gestion de todo lists développée en Rust qui fo
 
 ### 🎯 Fonctionnalités principales
 - **Création de todo lists** : Créez de nouvelles listes avec des éléments personnalisés
-- **Modification de listes existantes** : Ajoutez, supprimez ou modifiez le statut des éléments
+- **Modification de listes existantes** : Ajoutez, supprimez ou modifiez le statut, l'état, la priorité ou la date d'échéance des éléments
 - **Suppression de listes** : Supprimez définitivement des listes avec confirmation
 - **Stockage persistant** : Toutes les listes sont sauvegardées automatiquement en JSON
 
@@ -16,8 +16,11 @@ Chaque élément de todo list contient :
 - **ID unique** : Identifiant automatique pour chaque élément
 - **Titre** : Nom de la tâche (obligatoire)
 - **Description** : Détails optionnels sur la tâche
-- **Statut** : Terminé (✓) ou en cours (□)
-- **Horodatage** : Date de création et de completion
+- **État** : À faire ⬜, En cours 🟦, En attente 🟨, Terminée ✅
+- **Statut** : Terminé (✅) ou non (⬜)
+- **Priorité** : Basse 🟢, Moyenne 🟡, Haute 🟠, Critique 🔴
+- **Date d'échéance** : Optionnelle, format JJ/MM/AAAA, avec alertes si dépassée
+- **Horodatage** : Date de création et de complétion
 
 ### 💾 Stockage des données
 - Format : JSON lisible et structuré
@@ -58,6 +61,9 @@ L'application affiche un menu avec 4 options :
 3. Ajoutez des éléments un par un :
    - Titre de l'élément (obligatoire)
    - Description (optionnelle)
+   - État (À faire, En cours, En attente, Terminée)
+   - Priorité (Basse, Moyenne, Haute, Critique)
+   - Date d'échéance (optionnelle, format JJ/MM/AAAA)
    - Tapez "fin" pour terminer l'ajout d'éléments
 4. La liste est automatiquement sauvegardée
 
@@ -65,11 +71,14 @@ L'application affiche un menu avec 4 options :
 1. Choisissez l'option 2
 2. Sélectionnez la liste à modifier
 3. Sous-menu de modification :
-   - **Ajouter un élément** : Nouvelle tâche
-   - **Marquer comme terminé/non terminé** : Changer le statut
-   - **Supprimer un élément** : Retirer une tâche
-   - **Afficher la liste** : Voir le contenu actuel
-   - **Retour au menu principal** : Sauvegarde automatique
+   - **Ajouter un élément** : Nouvelle tâche (avec état, priorité et date d'échéance)
+   - **Changer l'état d'un élément**
+   - **Marquer comme terminé/non terminé**
+   - **Supprimer un élément**
+   - **Modifier la priorité d'un élément**
+   - **Modifier la date d'échéance d'un élément**
+   - **Afficher la liste**
+   - **Retour au menu principal**
 
 #### Suppression d'une liste
 1. Choisissez l'option 3
@@ -87,7 +96,9 @@ L'application affiche un menu avec 4 options :
       "id": 1,
       "title": "Titre de la tâche",
       "description": "Description optionnelle",
-      "completed": false,
+      "status": "Afaire",
+      "priority": "High",
+      "due_date": "2025-12-25",
       "created_at": "2025-06-24T21:29:00Z",
       "completed_at": null
     }
@@ -96,6 +107,10 @@ L'application affiche un menu avec 4 options :
   "last_modified": "2025-06-24T21:29:00Z"
 }
 ```
+
+- **status** : "Afaire", "EnCours", "EnAttente", "Terminee"
+- **priority** : "Low", "Medium", "High", "Critical"
+- **due_date** : chaîne au format "AAAA-MM-JJ" ou null
 
 ## Dépendances
 
@@ -133,8 +148,8 @@ cargo test
 
 - [ ] Interface graphique (TUI)
 - [ ] Catégories et tags pour les éléments
-- [ ] Dates d'échéance
-- [ ] Priorités
+- [ ] Dates d'échéance récurrentes
+- [ ] Priorités personnalisables
 - [ ] Export/import de listes
 - [ ] Synchronisation cloud
 - [ ] Rappels et notifications

@@ -1,14 +1,74 @@
 use std::io;
 use std::fs;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveDate, Local};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+enum Priority {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl Priority {
+    fn to_string(&self) -> &'static str {
+        match self {
+            Priority::Low => "Basse",
+            Priority::Medium => "Moyenne",
+            Priority::High => "Haute",
+            Priority::Critical => "Critique",
+        }
+    }
+
+    fn to_symbol(&self) -> &'static str {
+        match self {
+            Priority::Low => "🟢",
+            Priority::Medium => "🟡",
+            Priority::High => "🟠",
+            Priority::Critical => "🔴",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+enum TaskStatus {
+    Afaire,
+    EnCours,
+    EnAttente,
+    Terminee,
+}
+
+impl TaskStatus {
+    fn to_string(&self) -> &'static str {
+        match self {
+            TaskStatus::Afaire => "À faire",
+            TaskStatus::EnCours => "En cours",
+            TaskStatus::EnAttente => "En attente",
+            TaskStatus::Terminee => "Terminée",
+        }
+    }
+    fn to_symbol(&self) -> &'static str {
+        match self {
+            TaskStatus::Afaire => "⬜",
+            TaskStatus::EnCours => "🟦",
+            TaskStatus::EnAttente => "🟨",
+            TaskStatus::Terminee => "✅",
+        }
+    }
+    fn is_done(&self) -> bool {
+        matches!(self, TaskStatus::Terminee)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TodoItem {
     id: u32,
     title: String,
     description: Option<String>,
-    completed: bool,
+    status: TaskStatus,
+    priority: Priority,
+    due_date: Option<NaiveDate>,
     created_at: DateTime<Utc>,
     completed_at: Option<DateTime<Utc>>,
 }
@@ -22,25 +82,48 @@ struct TodoList {
 }
 
 impl TodoItem {
-    fn new(id: u32, title: String, description: Option<String>) -> Self {
+    fn new(id: u32, title: String, description: Option<String>, priority: Priority, due_date: Option<NaiveDate>) -> Self {
         TodoItem {
             id,
             title,
             description,
-            completed: false,
+            status: TaskStatus::Afaire,
+            priority,
+            due_date,
             created_at: Utc::now(),
             completed_at: None,
         }
     }
 
     fn mark_completed(&mut self) {
-        self.completed = true;
+        self.status = TaskStatus::Terminee;
         self.completed_at = Some(Utc::now());
     }
 
     fn mark_incomplete(&mut self) {
-        self.completed = false;
+        self.status = TaskStatus::Afaire;
         self.completed_at = None;
+    }
+
+    fn is_overdue(&self) -> bool {
+        if let Some(due_date) = self.due_date {
+            if self.status.is_done() {
+                return false;
+            }
+            let today = Local::now().date_naive();
+            due_date < today
+        } else {
+            false
+        }
+    }
+
+    fn days_until_due(&self) -> Option<i64> {
+        if let Some(due_date) = self.due_date {
+            let today = Local::now().date_naive();
+            Some((due_date - today).num_days())
+        } else {
+            None
+        }
     }
 }
 
@@ -56,7 +139,30 @@ impl TodoList {
 
     fn add_item(&mut self, title: String, description: Option<String>) {
         let id = self.items.len() as u32 + 1;
-        let item = TodoItem::new(id, title, description);
+        let item = TodoItem::new(id, title, description, Priority::Low, None);
+        self.items.push(item);
+        self.last_modified = Utc::now();
+    }
+
+    fn add_item_with_details(&mut self, title: String, description: Option<String>, priority: Priority, due_date: Option<NaiveDate>) {
+        let id = self.items.len() as u32 + 1;
+        let item = TodoItem::new(id, title, description, priority, due_date);
+        self.items.push(item);
+        self.last_modified = Utc::now();
+    }
+
+    fn add_item_with_details_status(&mut self, title: String, description: Option<String>, status: TaskStatus, priority: Priority, due_date: Option<NaiveDate>) {
+        let id = self.items.len() as u32 + 1;
+        let item = TodoItem {
+            id,
+            title,
+            description,
+            status,
+            priority,
+            due_date,
+            created_at: Utc::now(),
+            completed_at: if status.is_done() { Some(Utc::now()) } else { None },
+        };
         self.items.push(item);
         self.last_modified = Utc::now();
     }
@@ -73,11 +179,31 @@ impl TodoList {
 
     fn toggle_item(&mut self, id: u32) -> bool {
         if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
-            if item.completed {
+            if item.status.is_done() {
                 item.mark_incomplete();
             } else {
                 item.mark_completed();
             }
+            self.last_modified = Utc::now();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn update_item_priority(&mut self, id: u32, priority: Priority) -> bool {
+        if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+            item.priority = priority;
+            self.last_modified = Utc::now();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn update_item_due_date(&mut self, id: u32, due_date: Option<NaiveDate>) -> bool {
+        if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+            item.due_date = due_date;
             self.last_modified = Utc::now();
             true
         } else {
@@ -95,15 +221,55 @@ impl TodoList {
         if self.items.is_empty() {
             println!("Aucun élément dans cette liste.");
         } else {
-            for item in &self.items {
-                let status = if item.completed { "✓" } else { "□" };
-                println!("{} [{}] {}", status, item.id, item.title);
+            // Trier les éléments par priorité (critique en premier) puis par date d'échéance
+            let mut sorted_items = self.items.clone();
+            sorted_items.sort_by(|a, b| {
+                // D'abord par priorité (Critical > High > Medium > Low)
+                let priority_cmp = (b.priority as u8).cmp(&(a.priority as u8));
+                if priority_cmp != std::cmp::Ordering::Equal {
+                    return priority_cmp;
+                }
+                
+                // Puis par date d'échéance (plus tôt en premier)
+                match (a.due_date, b.due_date) {
+                    (Some(a_date), Some(b_date)) => a_date.cmp(&b_date),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => std::cmp::Ordering::Equal,
+                }
+            });
+
+            for item in &sorted_items {
+                let status_symbol = item.status.to_symbol();
+                let status_text = item.status.to_string();
+                let priority_symbol = item.priority.to_symbol();
+                let priority_text = item.priority.to_string();
+                println!("{} [{}] {} ({}) - {} {}", status_symbol, item.id, item.title, priority_text, status_text, priority_symbol);
+                
                 if let Some(desc) = &item.description {
                     println!("    Description: {}", desc);
                 }
-                if item.completed {
+                
+                if let Some(due_date) = item.due_date {
+                    let date_str = due_date.format("%d/%m/%Y").to_string();
+                    if item.is_overdue() {
+                        println!("    ⚠️  ÉCHÉANCE DÉPASSÉE: {}", date_str);
+                    } else if let Some(days) = item.days_until_due() {
+                        if days == 0 {
+                            println!("    📅 Échéance: {} (AUJOURD'HUI!)", date_str);
+                        } else if days == 1 {
+                            println!("    📅 Échéance: {} (DEMAIN)", date_str);
+                        } else if days < 7 {
+                            println!("    📅 Échéance: {} (dans {} jours)", date_str, days);
+                        } else {
+                            println!("    📅 Échéance: {}", date_str);
+                        }
+                    }
+                }
+                
+                if item.status.is_done() {
                     if let Some(completed_at) = item.completed_at {
-                        println!("    Terminé le: {}", completed_at.format("%d/%m/%Y à %H:%M"));
+                        println!("    ✅ Terminé le: {}", completed_at.format("%d/%m/%Y à %H:%M"));
                     }
                 }
                 println!();
@@ -144,6 +310,83 @@ fn list_saved_todo_lists() -> Vec<String> {
     lists
 }
 
+fn get_priority_from_user() -> Priority {
+    println!("Choisissez la priorité:");
+    println!("1 - Basse 🟢");
+    println!("2 - Moyenne 🟡");
+    println!("3 - Haute 🟠");
+    println!("4 - Critique 🔴");
+    
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Erreur de lecture");
+        let choice: u32 = input.trim().parse().unwrap_or(0);
+        
+        match choice {
+            1 => return Priority::Low,
+            2 => return Priority::Medium,
+            3 => return Priority::High,
+            4 => return Priority::Critical,
+            _ => println!("Choix invalide. Veuillez entrer 1, 2, 3 ou 4."),
+        }
+    }
+}
+
+fn get_due_date_from_user() -> Option<NaiveDate> {
+    println!("Voulez-vous ajouter une date d'échéance? (oui/non)");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Erreur de lecture");
+    
+    if input.trim().to_lowercase() != "oui" {
+        return None;
+    }
+    
+    println!("Entrez la date d'échéance (format: JJ/MM/AAAA):");
+    let mut date_input = String::new();
+    io::stdin().read_line(&mut date_input).expect("Erreur de lecture");
+    
+    let date_str = date_input.trim();
+    match NaiveDate::parse_from_str(date_str, "%d/%m/%Y") {
+        Ok(date) => {
+            let today = Local::now().date_naive();
+            if date < today {
+                println!("⚠️  Attention: Cette date est dans le passé!");
+                println!("Voulez-vous continuer? (oui/non)");
+                let mut confirm = String::new();
+                io::stdin().read_line(&mut confirm).expect("Erreur de lecture");
+                if confirm.trim().to_lowercase() != "oui" {
+                    return None;
+                }
+            }
+            Some(date)
+        }
+        Err(_) => {
+            println!("Format de date invalide. Utilisez JJ/MM/AAAA (ex: 25/12/2024)");
+            None
+        }
+    }
+}
+
+fn get_status_from_user() -> TaskStatus {
+    println!("Choisissez l'état de la tâche :");
+    println!("1 - À faire ⬜");
+    println!("2 - En cours 🟦");
+    println!("3 - En attente 🟨");
+    println!("4 - Terminée ✅");
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Erreur de lecture");
+        let choice: u32 = input.trim().parse().unwrap_or(0);
+        match choice {
+            1 => return TaskStatus::Afaire,
+            2 => return TaskStatus::EnCours,
+            3 => return TaskStatus::EnAttente,
+            4 => return TaskStatus::Terminee,
+            _ => println!("Choix invalide. Veuillez entrer 1, 2, 3 ou 4."),
+        }
+    }
+}
+
 fn creer_liste() {
     println!("Entrez le nom de votre nouvelle todo list:");
     let mut name = String::new();
@@ -180,7 +423,11 @@ fn creer_liste() {
         let description = description.trim().to_string();
         
         let desc = if description.is_empty() { None } else { Some(description) };
-        todo_list.add_item(title, desc);
+        let status = get_status_from_user();
+        let priority = get_priority_from_user();
+        let due_date = get_due_date_from_user();
+        
+        todo_list.add_item_with_details_status(title, desc, status, priority, due_date);
         println!("Élément ajouté!");
     }
     
@@ -231,10 +478,13 @@ fn modifier_liste(todo_list: &mut TodoList) {
     loop {
         println!("\nActions disponibles:");
         println!("1 - Ajouter un élément");
-        println!("2 - Marquer un élément comme terminé/non terminé");
-        println!("3 - Supprimer un élément");
-        println!("4 - Afficher la liste");
-        println!("5 - Retour au menu principal");
+        println!("2 - Changer l'état d'un élément");
+        println!("3 - Marquer un élément comme terminé/non terminé");
+        println!("4 - Supprimer un élément");
+        println!("5 - Modifier la priorité d'un élément");
+        println!("6 - Modifier la date d'échéance d'un élément");
+        println!("7 - Afficher la liste");
+        println!("8 - Retour au menu principal");
         
         let mut choice = String::new();
         io::stdin().read_line(&mut choice).expect("Erreur de lecture");
@@ -258,10 +508,38 @@ fn modifier_liste(todo_list: &mut TodoList) {
                 let description = description.trim().to_string();
                 
                 let desc = if description.is_empty() { None } else { Some(description) };
-                todo_list.add_item(title, desc);
+                let status = get_status_from_user();
+                let priority = get_priority_from_user();
+                let due_date = get_due_date_from_user();
+                
+                todo_list.add_item_with_details_status(title, desc, status, priority, due_date);
                 println!("Élément ajouté!");
             }
             2 => {
+                if todo_list.items.is_empty() {
+                    println!("La liste est vide!");
+                    continue;
+                }
+                todo_list.display();
+                println!("Entrez l'ID de l'élément dont vous voulez changer l'état:");
+                let mut id_input = String::new();
+                io::stdin().read_line(&mut id_input).expect("Erreur de lecture");
+                let id: u32 = id_input.trim().parse().expect("Veuillez entrer un nombre");
+                let new_status = get_status_from_user();
+                if let Some(item) = todo_list.items.iter_mut().find(|item| item.id == id) {
+                    item.status = new_status;
+                    if new_status.is_done() {
+                        item.completed_at = Some(Utc::now());
+                    } else {
+                        item.completed_at = None;
+                    }
+                    todo_list.last_modified = Utc::now();
+                    println!("État modifié!");
+                } else {
+                    println!("Élément non trouvé!");
+                }
+            }
+            3 => {
                 if todo_list.items.is_empty() {
                     println!("La liste est vide!");
                     continue;
@@ -279,7 +557,7 @@ fn modifier_liste(todo_list: &mut TodoList) {
                     println!("Élément non trouvé!");
                 }
             }
-            3 => {
+            4 => {
                 if todo_list.items.is_empty() {
                     println!("La liste est vide!");
                     continue;
@@ -297,10 +575,48 @@ fn modifier_liste(todo_list: &mut TodoList) {
                     println!("Élément non trouvé!");
                 }
             }
-            4 => {
+            5 => {
+                if todo_list.items.is_empty() {
+                    println!("La liste est vide!");
+                    continue;
+                }
+                
+                todo_list.display();
+                println!("Entrez l'ID de l'élément dont vous voulez modifier la priorité:");
+                let mut id_input = String::new();
+                io::stdin().read_line(&mut id_input).expect("Erreur de lecture");
+                let id: u32 = id_input.trim().parse().expect("Veuillez entrer un nombre");
+                
+                let new_priority = get_priority_from_user();
+                if todo_list.update_item_priority(id, new_priority) {
+                    println!("Priorité modifiée!");
+                } else {
+                    println!("Élément non trouvé!");
+                }
+            }
+            6 => {
+                if todo_list.items.is_empty() {
+                    println!("La liste est vide!");
+                    continue;
+                }
+                
+                todo_list.display();
+                println!("Entrez l'ID de l'élément dont vous voulez modifier la date d'échéance:");
+                let mut id_input = String::new();
+                io::stdin().read_line(&mut id_input).expect("Erreur de lecture");
+                let id: u32 = id_input.trim().parse().expect("Veuillez entrer un nombre");
+                
+                let new_due_date = get_due_date_from_user();
+                if todo_list.update_item_due_date(id, new_due_date) {
+                    println!("Date d'échéance modifiée!");
+                } else {
+                    println!("Élément non trouvé!");
+                }
+            }
+            7 => {
                 todo_list.display();
             }
-            5 => break,
+            8 => break,
             _ => println!("Choix invalide."),
         }
     }

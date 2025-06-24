@@ -1,0 +1,17 @@
+{
+  "name": "test 2",
+  "items": [
+    {
+      "id": 1,
+      "title": "utiliser cursor",
+      "description": "voir titre",
+      "completed": false,
+      "priority": "Medium",
+      "due_date": null,
+      "created_at": "2025-06-24T21:58:12.883083299Z",
+      "completed_at": null
+    }
+  ],
+  "created_at": "2025-06-24T21:57:53.424673830Z",
+  "last_modified": "2025-06-24T21:58:12.883087116Z"
+}
