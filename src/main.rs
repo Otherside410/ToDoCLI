@@ -137,22 +137,31 @@ impl TodoList {
         }
     }
 
+    fn next_id(&self) -> u32 {
+        self.items
+            .iter()
+            .map(|item| item.id)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1)
+    }
+
     fn add_item(&mut self, title: String, description: Option<String>) {
-        let id = self.items.len() as u32 + 1;
+        let id = self.next_id();
         let item = TodoItem::new(id, title, description, Priority::Low, None);
         self.items.push(item);
         self.last_modified = Utc::now();
     }
 
     fn add_item_with_details(&mut self, title: String, description: Option<String>, priority: Priority, due_date: Option<NaiveDate>) {
-        let id = self.items.len() as u32 + 1;
+        let id = self.next_id();
         let item = TodoItem::new(id, title, description, priority, due_date);
         self.items.push(item);
         self.last_modified = Utc::now();
     }
 
     fn add_item_with_details_status(&mut self, title: String, description: Option<String>, status: TaskStatus, priority: Priority, due_date: Option<NaiveDate>) {
-        let id = self.items.len() as u32 + 1;
+        let id = self.next_id();
         let item = TodoItem {
             id,
             title,
